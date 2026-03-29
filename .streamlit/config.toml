@@ -1,0 +1,20 @@
+[theme]
+#primaryColor = "#eb4034"  # Dark Orange
+#backgroundColor = "#2E2E2E"  # Dark Gray
+#secondaryBackgroundColor = "#1C1C1C"  # Almost Black
+#textColor = "#FFFFFF"  # White
+#font = "sans serif"  # Modern sans-serif font
+
+
+primaryColor = "#FFD700"  # Golden Yellow
+backgroundColor = "#FFFFFF"  # White
+secondaryBackgroundColor = "#F2F2F2"  # Light Gray
+textColor = "#000000"  # Black
+font = "sans serif"  # Handwritten, tropical font
+
+[server]
+port = 8502
+enableStaticServing = true
+
+[browser]
+gatherUsageStats = false

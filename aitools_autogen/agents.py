@@ -1,0 +1,115 @@
+import re
+from typing import Optional, List, Dict, Any, Union
+
+import autogen
+import requests
+from autogen import Agent, ConversableAgent
+
+# This is a general agent with a specific name and a specific reply function.
+# This is an example of how to implement a custom agent.
+class OpenAPIAgent(autogen.AssistantAgent):
+    def __init__(self):
+        super().__init__(name="OpenAPI Agent", llm_config=None,
+                         max_consecutive_auto_reply=3)
+        self.register_reply([Agent, None], self._reply_func)
+
+    def _reply_func(self,
+                    recipient: ConversableAgent,
+                    messages: Optional[List[Dict]] = None,
+                    sender: Optional[Agent] = None,
+                    config: Optional[Any] = None,
+                    ) -> Any | Union[str, Dict, None]:
+        urls = self._extract_urls(messages[0]["content"])
+        if (urls is None) or (len(urls) == 0):
+            return False, None
+        return True, self._get_openapi_spec(urls[0])
+
+    # Write a function that given a str extracts a list of urls present in the string
+    def _extract_urls(self, text):
+        """
+            Extracts a list of URLs from a given string.
+
+            :param text: str, the text to search for URLs.
+            :return: list, a list of URLs found in the string.
+            """
+        url_regex = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
+        urls = re.findall(url_regex, text)
+        return urls
+
+    def _get_openapi_spec(self, url) -> Optional[str]:
+        response = requests.get(url)
+        if response.status_code == 200:
+            return str(response.text)
+        else:
+            return None
+
+
+# This is a general agent with a specific name and a specific reply function.
+# It scours a set of urls and gathers a dictionary of the content of each url.
+# There's no cycle protection yet if the urls self-refer to each other.
+class WebScraperAgent(autogen.AssistantAgent):
+    def __init__(self):
+        super().__init__(name="WebScraper Agent", llm_config=None,
+                         max_consecutive_auto_reply=3)
+        self.register_reply([Agent, None], self._scraper_func)
+
+    def _scraper_func(self,
+                      recipient: ConversableAgent,
+                      messages: Optional[List[Dict]] = None,
+                      sender: Optional[Agent] = None,
+                      config: Optional[Any] = None,
+                      ) -> Any | Union[str, Dict, None]:
+        urls = self._extract_urls(messages[0]["content"])
+        if (urls is None) or (len(urls) == 0):
+            return False, None
+        return True, self._get_scraped_content(urls)
+
+    # Write a function that given a str extracts a list of urls present in the string
+    @staticmethod
+    def _extract_urls(text):
+        """
+            Extracts a list of URLs from a given string.
+
+            :param text: str, the text to search for URLs.
+            :return: list, a list of URLs found in the string.
+            """
+        url_regex = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
+        urls = re.findall(url_regex, text)
+        return urls
+
+    @staticmethod
+    def _get_scraped_content(urls: List[str]) -> str:
+        result = ""
+        for url in urls:
+            response = requests.get(url)
+            if response.status_code == 200:
+                result += f"Content from {url}:\n{response.text}\n\n"
+            else:
+                result += f"Failed to retrieve content from {url}\n\n"
+        return result
+
+# Sometimes you just want one web page and its content directly....
+class WebPageScraperAgent(WebScraperAgent):
+    def _scraper_func(self,
+                      recipient: ConversableAgent,
+                      messages: Optional[List[Dict]] = None,
+                      sender: Optional[Agent] = None,
+                      config: Optional[Any] = None,
+                      ) -> Any | Union[str, Dict, None]:
+        urls = self._extract_urls(messages[0]["content"])
+        if (urls is None) or (len(urls) == 0):
+            return False, None
+        content = self._get_scraped_content(urls[0])
+        if content is None:
+            return False, None
+        return True, content
+
+    def _get_scraped_content(self, url: str) -> Optional[Dict[str, str]]:
+        result: Optional[Dict[str, str]] = dict()
+        response = requests.get(url)
+        if response.status_code == 200:
+            result['content'] = str(response.text)
+        else:
+            result = None
+        return result
+
